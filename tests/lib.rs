@@ -1,9 +1,11 @@
 extern crate chrono;
 extern crate cron;
+extern crate chrono_tz;
 
 #[cfg(test)]
 mod tests {
     use chrono::*;
+    use chrono_tz::Tz;
     use cron::{Schedule, TimeUnitSpec};
     use std::collections::Bound::{Excluded, Included};
     use std::str::FromStr;
@@ -314,5 +316,29 @@ mod tests {
         let schedule_2 = "00 00 * * * * *".parse::<Schedule>().unwrap();
         let next_time_2 = schedule_2.after(&start_time).next().unwrap();
         assert_eq!(next_time_1, next_time_2);
+    }
+
+    #[test]
+    fn test_dst_tz_schedule_next() {
+        let schedule_tz: Tz = "Europe/London".parse().unwrap();
+
+        // dt = 2019-10-27T01:03:29 BST
+        let dt = schedule_tz
+            .ymd(2019, 10, 27)
+            .and_hms(0, 3, 29)
+             // puts it in the middle of the DST transition; can't use and_hms because it is ambiguous in this TZ at this time
+            .checked_add_signed(Duration::hours(1))
+            .unwrap();
+        println!("DST test, original +1hr: {}", dt);
+
+        let schedule = "* * * * * * *".parse::<Schedule>().unwrap();
+        let next_time = schedule.after(&dt).next().unwrap();
+        println!("DST next_time: {}", next_time);
+
+        // This is not technically correct -- 2019-10-27T01:03:30 BST is really the next valid time.
+        // But 2019-10-27 01:03:30 is ambiguous, and therefore can't be created w/ ymd().and_hms().
+        // Returning the next non-ambiguous time isn't technically correct but it is better than a panic.
+        let expected_dt = schedule_tz.ymd(2019, 10, 27).and_hms(2, 0, 0);
+        assert_eq!(next_time, expected_dt);
     }
 }

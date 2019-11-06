@@ -225,17 +225,19 @@ impl Schedule {
 
                             for second in self.seconds.ordinals().range(second_range).cloned() {
                                 let timezone = after.timezone();
-                                let candidate = timezone
+                                if let Some(candidate) = timezone
                                     .ymd(year as i32, month, day_of_month)
-                                    .and_hms(hour, minute, second);
-                                if !self
-                                    .days_of_week
-                                    .ordinals()
-                                    .contains(&candidate.weekday().number_from_sunday())
+                                    .and_hms_opt(hour, minute, second)
                                 {
-                                    continue 'day_loop;
+                                    if !self
+                                        .days_of_week
+                                        .ordinals()
+                                        .contains(&candidate.weekday().number_from_sunday())
+                                    {
+                                        continue 'day_loop;
+                                    }
+                                    return Some(candidate);
                                 }
-                                return Some(candidate);
                             }
                             query.reset_minute();
                         } // End of minutes range
